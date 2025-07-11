@@ -17,6 +17,12 @@ class TuitionListView(generics.ListAPIView):
         if student_class:
             queryset = queryset.filter(student_class=student_class)
         return queryset
+    
+class TuitionCreateView(generics.CreateAPIView):
+    queryset = Tuition.objects.all()
+    serializer_class = TuitionSerializer
+    permission_classes = [permissions.IsAdminUser] 
+
 
 class TuitionDetailView(generics.RetrieveAPIView):
     queryset = Tuition.objects.all()

@@ -1,0 +1,13 @@
+{
+    "builds": [{
+      "src": "tuition_khuji/wsgi.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "15mb", "runtime": "python3.11.3" }
+    }],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "tuition_khuji/wsgi.py"
+      }
+    ]
+}
