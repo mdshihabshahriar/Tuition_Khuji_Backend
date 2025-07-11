@@ -27,8 +27,15 @@ class ApplyTuitionView(APIView):
 
     def post(self, request, pk):
         tuition = get_object_or_404(Tuition, pk=pk)
+        
+        if not tuition.is_available:
+            return Response({'error': 'This tuition is no longer available.'}, status=400)
+
+        if Application.objects.filter(tutor=request.user, tuition=tuition).exists():
+            return Response({'error': 'You have already applied for this tuition.'}, status=400)
+
         Application.objects.create(tutor=request.user, tuition=tuition)
-        return Response({'message': 'Applied successfully'})
+        return Response({'message': 'Applied successfully'}, status=201)
 
 class ApplicantListView(APIView):
     permission_classes = [permissions.IsAdminUser]

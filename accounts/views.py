@@ -68,12 +68,13 @@ class UserLoginApiView(APIView):
         return Response(serializer.errors)
     
 class UserLogoutApiView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     
     def get(self,request):
         request.user.auth_token.delete()
         logout(request)
-        return redirect('login')
+        # return redirect('login')
+        return Response({"message": "Logged out successfully."}, status=200)
     
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
