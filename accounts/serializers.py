@@ -78,6 +78,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     applied_tuitions = serializers.SerializerMethodField()
     tutor_profile = serializers.SerializerMethodField()
     user_type = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
 
     class Meta:
         model = User
