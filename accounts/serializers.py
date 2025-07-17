@@ -45,7 +45,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         account.is_active = False
         account.save()
     
-        UserProfile.objects.create(user=account, user_type=user_type)
+        UserProfile.objects.create(user=account, user_type=user_type,phone = phone)
         
         return account
 

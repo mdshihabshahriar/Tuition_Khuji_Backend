@@ -14,7 +14,7 @@ class CustomUserAdmin(UserAdmin):
         ('Tuition History', {
             'fields': ('tuition_history',),
         }),
-        ('User Type Info', {
+        ('User Info', {
             'fields': ('user_type_display','phone'),
         }),
     )
