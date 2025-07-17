@@ -82,7 +82,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'first_name', 'last_name', 'email',
+            'id', 'username', 'first_name', 'last_name', 'email','phone',
             'user_type', 'applied_tuitions', 'tutor_profile'
         ]
 
@@ -98,6 +98,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_user_type(self, user):
         try:
             return user.userprofile.user_type
+        except:
+            return None
+        
+    def get_phone(self, obj):
+        try:
+            return obj.userprofile.phone
         except:
             return None
 
