@@ -6,7 +6,7 @@ from .serializers import TuitionSerializer, ApplicationSerializer, ReviewSeriali
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView
 from .models import Review
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from .permissions import IsStudentParent, IsTutor
 from accounts.permissions import IsAdminOrStudentParent
 
@@ -66,16 +66,12 @@ class CreateReviewView(APIView):
 
     def post(self, request, tuition_id):
         user = request.user
+        tuition = get_object_or_404(Tuition, id=tuition_id, posted_by=user)
 
-        application = get_object_or_404(
-            Application,
-            tuition__id=tuition_id,
-            is_selected=True,
-            student__user=user  
-        )
-
-        if application.tuition.posted_by != user:
-            return Response({'error': 'You are not authorized to review this tutor.'}, status=403)
+        try:
+            application = Application.objects.get(tuition=tuition, is_selected=True)
+        except Application.DoesNotExist:
+            return Response({'error': 'No selected tutor for this tuition.'}, status=400)
 
         if hasattr(application, 'review'):
             return Response({'error': 'You have already reviewed this tutor.'}, status=400)
@@ -84,19 +80,17 @@ class CreateReviewView(APIView):
         if serializer.is_valid():
             serializer.save(application=application)
             return Response(serializer.data, status=201)
+
         return Response(serializer.errors, status=400)
-
-
 
 class TutorReviewListView(ListAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         tutor_id = self.kwargs['tutor_id']
         return Review.objects.filter(application__tutor__id=tutor_id)
 
-    
 class SelectTutorView(APIView):
     permission_classes = [IsAdminOrStudentParent]
 

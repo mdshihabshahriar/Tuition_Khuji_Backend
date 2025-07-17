@@ -6,7 +6,7 @@ class TuitionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Tuition
-        fields = '__all__'
+        exclude = ['selected_tutor']
         read_only_fields = ['posted_by']
         
     def get_posted_by(self, obj):
