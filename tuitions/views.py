@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView
 from .models import Review
 from rest_framework.permissions import AllowAny
+from .permissions import IsStudentParent, IsTutor
+from accounts.permissions import IsAdminOrStudentParent
 
 class TuitionListView(generics.ListAPIView):
     serializer_class = TuitionSerializer
@@ -21,7 +23,10 @@ class TuitionListView(generics.ListAPIView):
 class TuitionCreateView(generics.CreateAPIView):
     queryset = Tuition.objects.all()
     serializer_class = TuitionSerializer
-    permission_classes = [permissions.IsAdminUser] 
+    permission_classes = [IsAdminOrStudentParent] 
+    
+    def perform_create(self, serializer):
+        serializer.save(posted_by=self.request.user)
 
 
 class TuitionDetailView(generics.RetrieveAPIView):
@@ -29,7 +34,7 @@ class TuitionDetailView(generics.RetrieveAPIView):
     serializer_class = TuitionSerializer
 
 class ApplyTuitionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsTutor]
 
     def post(self, request, pk):
         tuition = get_object_or_404(Tuition, pk=pk)
@@ -44,33 +49,36 @@ class ApplyTuitionView(APIView):
         return Response({'message': 'Applied successfully'}, status=201)
 
 class ApplicantListView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminOrStudentParent]
 
     def get(self, request, pk):
-        applications = Application.objects.filter(tuition_id=pk)
+        tuition = get_object_or_404(Tuition, pk=pk)
+
+        if request.user != tuition.posted_by and not request.user.is_staff:
+            return Response({'error': 'You are not authorized to view applicants for this tuition.'}, status=403)
+
+        applications = Application.objects.filter(tuition=tuition)
         serializer = ApplicationSerializer(applications, many=True)
         return Response(serializer.data)
 
-    def post(self, request, pk):
-        app_id = request.data.get('application_id')
-        application = get_object_or_404(Application, id=app_id, tuition_id=pk)
-        application.is_selected = True
-        application.save()
-        return Response({'message': 'Applicant selected'})
-
 class CreateReviewView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStudentParent]
 
     def post(self, request, tuition_id):
+        user = request.user
+
         application = get_object_or_404(
-            Application, 
-            tutor=request.user, 
-            tuition_id=tuition_id, 
-            is_selected=True
+            Application,
+            tuition__id=tuition_id,
+            is_selected=True,
+            student__user=user  
         )
 
+        if application.tuition.posted_by != user:
+            return Response({'error': 'You are not authorized to review this tutor.'}, status=403)
+
         if hasattr(application, 'review'):
-            return Response({'error': 'You have already reviewed this tuition.'}, status=400)
+            return Response({'error': 'You have already reviewed this tutor.'}, status=400)
 
         serializer = ReviewSerializer(data=request.data)
         if serializer.is_valid():
@@ -78,10 +86,43 @@ class CreateReviewView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
-class TuitionReviewListView(ListAPIView):
+
+
+class TutorReviewListView(ListAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        tuition_id = self.kwargs['tuition_id']
-        return Review.objects.filter(application__tuition__id=tuition_id)
+        tutor_id = self.kwargs['tutor_id']
+        return Review.objects.filter(application__tutor__id=tutor_id)
+
+    
+class SelectTutorView(APIView):
+    permission_classes = [IsAdminOrStudentParent]
+
+    def post(self, request, pk):
+        tuition = get_object_or_404(Tuition, pk=pk)
+
+        if tuition.posted_by != request.user and not request.user.is_staff:
+            return Response({"error": "You are not allowed to select tutor for this tuition."}, status=403)
+
+        if tuition.selected_tutor is not None:
+            return Response({"error": "A tutor has already been selected for this tuition."}, status=400)
+
+        app_id = request.data.get('application_id')
+        if not app_id:
+            return Response({"error": "Application ID is required."}, status=400)
+
+        application = get_object_or_404(Application, id=app_id, tuition=tuition)
+
+        if application.tuition != tuition:
+            return Response({"error": "Invalid application for this tuition."}, status=400)
+
+        application.is_selected = True
+        application.save()
+
+        tuition.selected_tutor = application.tutor
+        tuition.is_available = False
+        tuition.save()
+
+        return Response({"message": "Tutor selected successfully"})

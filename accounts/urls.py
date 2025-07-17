@@ -10,4 +10,6 @@ urlpatterns = [
     path('active/<uid64>/<token>/',views.activate,name='activate'),
     path('change-password/', views.ChangePasswordView.as_view()),
     path('profile/', views.UserProfileView.as_view(), name='user_profile'),
+    path('profile/edit/<int:pk>/', views.TutorProfileUpdateView.as_view(), name='tutor-profile'),
+
 ]

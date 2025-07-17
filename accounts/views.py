@@ -9,9 +9,13 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.models import User
+from .models import TutorProfile,UserProfile
 from django.shortcuts import redirect
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework import generics,permissions,status
+from tuitions.permissions import IsTutor
+from rest_framework.exceptions import PermissionDenied,NotFound
 
 class UserRegistrationApiView(APIView):
     serializer_class = serializers.RegistrationSerializer
@@ -100,3 +104,54 @@ class UserProfileView(APIView):
         user = request.user
         serializer = serializers.UserProfileSerializer(user)
         return Response(serializer.data)
+    
+class TutorProfileUpdateView(APIView):
+    permission_classes = [IsTutor]
+
+    def post(self, request, pk):
+        user = request.user
+
+        if user.id != pk:
+            raise PermissionDenied("You can only create your own profile.")
+
+        try:
+            user_profile = UserProfile.objects.get(user=user)
+        except UserProfile.DoesNotExist:
+            return Response({"error": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if user_profile.user_type != 'tutor':
+            raise PermissionDenied("Only tutors can create a tutor profile.")
+
+        if TutorProfile.objects.filter(profile=user_profile).exists():
+            return Response({"error": "Profile already exists. Use PUT to update."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = serializers.TutorProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(profile=user_profile)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk):
+        user = request.user
+
+        if user.id != pk:
+            raise PermissionDenied("You can only update your own profile.")
+
+        try:
+            user_profile = UserProfile.objects.get(user=user)
+        except UserProfile.DoesNotExist:
+            return Response({"error": "User profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if user_profile.user_type != 'tutor':
+            raise PermissionDenied("Only tutors can update their profile.")
+
+        try:
+            tutor_profile = TutorProfile.objects.get(profile=user_profile)
+        except TutorProfile.DoesNotExist:
+            return Response({"error": "Tutor profile does not exist. Create one first."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = serializers.TutorProfileSerializer(tutor_profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
